@@ -20,6 +20,10 @@ def realtime_display():
         print("Error: Unable to open webcam.")
         return
 
+    # Initialize counters
+    coordinates_count = 0
+    target_coordinates_count = 300
+
     # display in real-time the mapping of the landmarks
     with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
         while cap.isOpened():          
@@ -64,6 +68,13 @@ def realtime_display():
                 with open('LandMark_Coords.csv', mode='a', newline='') as f:
                     csv_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                     csv_writer.writerow(row) 
+                
+                # Increment coordinates counter
+                coordinates_count += 1
+                
+                # Check if target coordinate count is reached
+                if coordinates_count >= target_coordinates_count:
+                    break
                 
             except:
                 pass
