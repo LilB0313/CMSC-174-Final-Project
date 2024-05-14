@@ -5,8 +5,8 @@
 import cv2
 import mediapipe as mp
 import csv
-import os
 import numpy as np
+from collections import deque
 
 # Function responsible for displaying the real-time capturing of the landmarks
 def realtime_display():
@@ -20,9 +20,8 @@ def realtime_display():
         print("Error: Unable to open webcam.")
         return
 
-    # Initialize counters
-    coordinates_count = 0
-    target_coordinates_count = 300
+    # Create a queue to store the rows of data
+    data_queue = deque(maxlen=100)  # Adjust maxlen based on your needs
 
     # display in real-time the mapping of the landmarks
     with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
@@ -42,41 +41,40 @@ def realtime_display():
 
             draw_landmarks(image, results, mp_drawing, mp_holistic)
             
-            class_name = "Play_Right_Hand"
+            class_name = "Play_Left_Hand"
             
             # Export coordinates
             try:                
-                # # Extract right hand landmarks
-                # right_hand = results.right_hand_landmarks.landmark
-                # right_hand_row = list(np.array([[landmark.x, landmark.y, landmark.z, landmark.visibility] for landmark in right_hand]).flatten())
+                # Extract right hand landmarks
+                right_hand = results.right_hand_landmarks.landmark if results.right_hand_landmarks else []
+                right_hand_row = list(np.array([[landmark.x, landmark.y, landmark.z, landmark.visibility] for landmark in right_hand]).flatten())
                                 
                 # Extract left hand landmarks
-                left_hand = results.left_hand_landmarks.landmark # corrected assignment
+                left_hand = results.left_hand_landmarks.landmark if results.left_hand_landmarks else []
                 left_hand_row = list(np.array([[landmark.x, landmark.y, landmark.z, landmark.visibility] for landmark in left_hand]).flatten())
                 
                 # Extract Pose landmarks
-                pose = results.pose_landmarks.landmark
+                pose = results.pose_landmarks.landmark if results.pose_landmarks else []
                 pose_row = list(np.array([[landmark.x, landmark.y, landmark.z, landmark.visibility] for landmark in pose]).flatten())
                 
-                # Concate rows
-                # row = right_hand_row + pose_row
-                row = left_hand_row + pose_row
+                # Concate rows, get coordinated for all these landmarks
+                row = right_hand_row + left_hand_row + pose_row
                 
                 # Append class name 
                 row.insert(0, class_name)
                 
-                with open('LandMark_Coords.csv', mode='a', newline='') as f:
-                    csv_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                    csv_writer.writerow(row) 
+                # Append the row to the queue
+                data_queue.append(row)
                 
-                # Increment coordinates counter
-                coordinates_count += 1
+                # Write the batch of data to the CSV file when the queue is full
+                if len(data_queue) == data_queue.maxlen:
+                    with open('LandMark_Coords.csv', mode='a', newline='') as f:
+                        csv_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                        csv_writer.writerows(data_queue)
+                    data_queue.clear()
                 
-                # Check if target coordinate count is reached
-                if coordinates_count >= target_coordinates_count:
-                    break
-                
-            except:
+            except Exception as e:
+                print(f"Error: {e}")
                 pass
 
             cv2.imshow('Raw Webcam Feed', image)
@@ -86,8 +84,12 @@ def realtime_display():
 
     cap.release()
     cv2.destroyAllWindows()
-        
-    return results  # Return the results object
+    
+    # Write any remaining data in the queue to the CSV file
+    if data_queue:
+        with open('LandMark_Coords.csv', mode='a', newline='') as f:
+            csv_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            csv_writer.writerows(data_queue)
     
 # Function for adding the landmark/skeletal framework of the hands and body of a person
 def draw_landmarks(image, results, mp_drawing, mp_holistic):
