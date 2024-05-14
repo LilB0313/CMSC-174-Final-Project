@@ -6,8 +6,6 @@
 import cv2
 import mediapipe as mp
 import csv
-import os
-import numpy as np
 
 # Function responsible for displaying the real-time capturing of the landmarks
 def realtime_display():
@@ -62,8 +60,6 @@ def realtime_display():
     cap.release()
     cv2.destroyAllWindows()
     
-    return results  # Return the results object
-    
 # Function for adding the landmark/skeletal framework of the hands and body of a person
 def draw_landmarks(image, results, mp_drawing, mp_holistic):
     # Specific landmarks are shown here https://i.imgur.com/AzKNp7A.png
@@ -87,8 +83,16 @@ def draw_landmarks(image, results, mp_drawing, mp_holistic):
 
 # Function for capturing landmarks and saving them to a CSV file
 def capture_landmarks(results):
-    num_coords = len(results.pose_landmarks.landmark)+len(results.face_landmarks.landmark)
-    
+    # When running, please make both hands visible
+    right_hand_landmarks = len(results.right_hand_landmarks.landmark) if results.right_hand_landmarks else 0
+    left_hand_landmarks = len(results.left_hand_landmarks.landmark) if results.left_hand_landmarks else 0
+    pose_landmarks = len(results.pose_landmarks.landmark) if results.pose_landmarks else 0
+
+    # To check that the points are taken correctly, there shoud be 21 for each hand landmarks, and 33 for the pose
+    # print(right_hand_landmarks, left_hand_landmarks, pose_landmarks)
+
+    num_coords = pose_landmarks + right_hand_landmarks + left_hand_landmarks
+ 
     landmarks = ['class']
     for val in range(1, num_coords+1):
         landmarks += ['x{}'.format(val), 'y{}'.format(val), 'z{}'.format(val), 'v{}'.format(val)]
